@@ -33,7 +33,6 @@ export class Logger {
       }
 
       this.keyTimings.get(key)?.push({ press: currentTime });
-      console.log(`Key ${key} pressed at ${currentTime.toFixed(3)}s`);
     }
   }
 

@@ -31,7 +31,6 @@ export class Game {
 
   private async loadVisualizer() {
     try {
-      console.log("Loading visualizer timing data...");
       const response = await fetch("./assets/keyTimings.json");
       if (!response.ok) {
         console.warn(
@@ -44,7 +43,6 @@ export class Game {
       this.keyVisualizer = new KeyVisualizer(this.canvas);
       this.keyVisualizer.loadTimings(timingsJson);
       this.keyVisualizer.setPlaybackRate(this.PLAYBACKRATE);
-      console.log("Visualizer loaded successfully");
     } catch (error) {
       console.warn("Failed to load visualizer:", error);
     }
@@ -76,7 +74,6 @@ export class Game {
   }
 
   async start() {
-    console.log("Starting game...");
 
     this.video.setPlaybackRate(this.PLAYBACKRATE);
     this.audio.setPlaybackRate(this.PLAYBACKRATE);
@@ -95,7 +92,6 @@ export class Game {
     this.active = true;
 
     if (this.keyVisualizer) {
-      console.log("Starting visualizer...");
       this.keyVisualizer.start();
     }
 
