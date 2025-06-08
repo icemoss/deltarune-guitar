@@ -74,7 +74,6 @@ export class Game {
   }
 
   async start() {
-
     this.video.setPlaybackRate(this.PLAYBACKRATE);
     this.audio.setPlaybackRate(this.PLAYBACKRATE);
 
