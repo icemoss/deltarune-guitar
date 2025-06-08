@@ -2,7 +2,7 @@ export class Audio {
     constructor() {
         this.audio = document.createElement("audio");
         const sources = [
-            { src: "./assets/music.opus", type: "audio/ogg; codes=opus" },
+            { src: "./assets/music.opus", type: "audio/ogg; codecs=opus" },
             {
                 src: "./assets/music.ogg",
                 type: "audio/ogg",

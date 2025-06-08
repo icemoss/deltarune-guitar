@@ -177,7 +177,6 @@ export class KeyVisualizer {
     drawNotes(currentTime) {
         if (!this.keyTimings)
             return;
-        this.drawActiveLongNoteTails(currentTime);
         const futureWindow = 2 / this.playbackRate;
         const pastWindow = 0.3 / this.playbackRate;
         const timingEntries = Object.entries(this.keyTimings);
@@ -189,8 +188,7 @@ export class KeyVisualizer {
             timings.forEach((timing) => {
                 const timeOffset = timing.press - currentTime;
                 const isLongNote = timing.release && timing.release - timing.press > 0.2;
-                const noteHit = this.hitNotes.has(timing);
-                // Draw long note tails even after head is hit
+                // Always draw long note tails regardless of hit status
                 if (isLongNote && timing.release) {
                     const releaseOffset = timing.release - currentTime;
                     const y = this.targetY - timeOffset * this.approachSpeed * this.playbackRate;
@@ -200,14 +198,10 @@ export class KeyVisualizer {
                     const tailBottom = Math.max(y, releaseY);
                     const visibleTop = this.targetY - 220;
                     const visibleBottom = this.canvas.height - 100;
-                    if (tailBottom >= visibleTop && tailTop <= visibleBottom) {
+                    // Only hide tail when it's completely off the bottom of the screen
+                    if (tailTop <= visibleBottom) {
                         this.ctx.fillStyle = lane.color;
-                        // If note head is hit, only draw the remaining tail
-                        let drawTop = tailTop;
-                        if (noteHit && currentTime > timing.press) {
-                            drawTop = Math.max(this.targetY, tailTop);
-                        }
-                        const clampedTop = Math.max(drawTop, visibleTop);
+                        const clampedTop = Math.max(tailTop, visibleTop);
                         const clampedBottom = Math.min(tailBottom, visibleBottom);
                         if (clampedBottom > clampedTop) {
                             this.ctx.fillRect(lane.x - 5, clampedTop, 10, clampedBottom - clampedTop);
@@ -215,37 +209,14 @@ export class KeyVisualizer {
                     }
                 }
                 // Only draw note heads if they haven't been hit
-                if (!noteHit && timeOffset > -pastWindow && timeOffset < futureWindow) {
+                if (!this.hitNotes.has(timing) &&
+                    timeOffset > -pastWindow &&
+                    timeOffset < futureWindow) {
                     const y = this.targetY - timeOffset * this.approachSpeed * this.playbackRate;
                     if (y >= this.targetY - 220 &&
                         y <= this.canvas.height - 100 + 25 &&
                         timeOffset > -0.05) {
                         this.drawNoteRect(lane.x, y, lane.color);
-                    }
-                }
-            });
-        });
-    }
-    drawActiveLongNoteTails(currentTime) {
-        this.activeLongNotes.forEach((longNotes, dataKey) => {
-            const laneName = this.keyToLane[dataKey];
-            if (!laneName)
-                return;
-            const lane = this.lanes[laneName];
-            longNotes.forEach((note) => {
-                if (note.release) {
-                    const releaseOffset = note.release - currentTime;
-                    const releaseY = this.targetY -
-                        releaseOffset * this.approachSpeed * this.playbackRate;
-                    const visibleTop = this.targetY - 220;
-                    const visibleBottom = this.canvas.height - 100;
-                    if (releaseY >= visibleTop) {
-                        const tailTop = this.targetY;
-                        const tailBottom = Math.min(releaseY, visibleBottom);
-                        if (tailBottom > tailTop) {
-                            this.ctx.fillStyle = lane.color;
-                            this.ctx.fillRect(lane.x - 5, tailTop, 10, tailBottom - tailTop);
-                        }
                     }
                 }
             });
