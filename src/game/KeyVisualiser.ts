@@ -34,11 +34,9 @@ export class KeyVisualizer {
     KeyX: "ArrowRight",
   };
 
-  // Lane configuration - centered and with new colors
   private readonly lanes: { [lane: string]: { x: number; color: string } } = {};
 
   constructor(private canvas: HTMLCanvasElement) {
-    console.log("key visualiser");
     const context = canvas.getContext("2d");
     if (!context) {
       throw new Error("Failed to get 2D context");
@@ -49,8 +47,8 @@ export class KeyVisualizer {
     const laneSpacing = 60;
 
     this.lanes = {
-      left: { x: centerX - laneSpacing / 2, color: "#00ff00" }, // Green
-      right: { x: centerX + laneSpacing / 2, color: "#0080ff" }, // Blue
+      left: { x: centerX - laneSpacing / 2, color: "#00ff00" },
+      right: { x: centerX + laneSpacing / 2, color: "#0080ff" },
     };
   }
 
@@ -78,79 +76,97 @@ export class KeyVisualizer {
     this.isPlaying = true;
     this.score = 0;
     this.combo = 0;
-    console.log("KeyVisualizer started with playback rate:", this.playbackRate);
+    this.keysHeld.clear();
+    this.activeLongNotes.clear();
   }
 
   stop(): void {
     this.isPlaying = false;
+    this.keysHeld.clear();
+    this.activeLongNotes.clear();
   }
 
   renderOverlay(): void {
     if (!this.isPlaying) return;
 
-    // Adjust current time by playback rate
     const currentTime =
       ((Date.now() - this.startTime) / 1000) * this.playbackRate;
 
-    // Draw a visible test overlay to confirm it's working
-    this.ctx.fillStyle = "rgba(255, 0, 0, 0.3)";
-    this.ctx.fillRect(0, 0, this.canvas.width, 40);
-    this.ctx.fillStyle = "white";
-    this.ctx.font = "16px Arial";
-    this.ctx.shadowColor = "black";
-    this.ctx.shadowBlur = 2;
-    this.ctx.fillText(
-      `♪ Time: ${currentTime.toFixed(1)}s (${this.playbackRate}x)`,
-      10,
-      25,
-    );
-    this.ctx.shadowBlur = 0;
+    this.updateLongNoteHolding(currentTime);
 
-    // Draw solid black overlay only behind note lanes
     this.drawNoteLaneOverlay();
 
-    // Draw lanes
     this.drawLanes();
 
-    // Draw target line
-    this.drawTargetLine();
-
-    // Draw notes
     this.drawNotes(currentTime);
 
-    // Draw score
+    this.drawTargetLine();
+
     this.drawScore();
   }
 
+  private updateLongNoteHolding(currentTime: number): void {
+    this.activeLongNotes.forEach((longNotes, dataKey) => {
+      const isKeyHeld = Array.from(this.keysHeld).some((heldKey) => {
+        const mappedKey = this.keyAliases[heldKey] || heldKey;
+        return mappedKey === dataKey;
+      });
+
+      longNotes.forEach((note, index) => {
+        if (
+          note.release &&
+          currentTime >= note.press &&
+          currentTime <= note.release
+        ) {
+          if (isKeyHeld) {
+            this.score += 1;
+          } else {
+            this.combo = 0;
+          }
+        }
+
+        if (note.release && currentTime > note.release + 0.1) {
+          longNotes.splice(index, 1);
+        }
+      });
+
+      if (longNotes.length === 0) {
+        this.activeLongNotes.delete(dataKey);
+      }
+    });
+  }
+
   private drawNoteLaneOverlay(): void {
-    // Draw solid black overlay only behind the note lanes, not the entire width
     const leftLaneX = this.lanes["left"].x;
     const rightLaneX = this.lanes["right"].x;
     const overlayLeft = leftLaneX - this.laneWidth / 2;
     const overlayWidth = rightLaneX + this.laneWidth / 2 - overlayLeft;
 
-    this.ctx.fillStyle = "rgba(0, 0, 0, 0.8)";
-    this.ctx.fillRect(overlayLeft, this.targetY - 150, overlayWidth, 150);
+    const overlayTop = this.targetY - 220;
+    const overlayBottom = this.canvas.height - 100;
+    const overlayHeight = overlayBottom - overlayTop;
+
+    this.ctx.fillStyle = "#000000";
+    this.ctx.fillRect(overlayLeft, overlayTop, overlayWidth, overlayHeight);
   }
 
   private drawLanes(): void {
     this.ctx.strokeStyle = "#888888";
     this.ctx.lineWidth = 2;
 
-    // Draw lane lines
     const laneEntries = Object.entries(this.lanes) as [
       string,
       { x: number; color: string },
     ][];
     for (const [, lane] of laneEntries) {
       this.ctx.beginPath();
-      this.ctx.moveTo(lane.x - this.laneWidth / 2, this.targetY - 150);
-      this.ctx.lineTo(lane.x - this.laneWidth / 2, this.canvas.height);
+      this.ctx.moveTo(lane.x - this.laneWidth / 2, this.targetY - 220);
+      this.ctx.lineTo(lane.x - this.laneWidth / 2, this.canvas.height - 100);
       this.ctx.stroke();
 
       this.ctx.beginPath();
-      this.ctx.moveTo(lane.x + this.laneWidth / 2, this.targetY - 150);
-      this.ctx.lineTo(lane.x + this.laneWidth / 2, this.canvas.height);
+      this.ctx.moveTo(lane.x + this.laneWidth / 2, this.targetY - 220);
+      this.ctx.lineTo(lane.x + this.laneWidth / 2, this.canvas.height - 100);
       this.ctx.stroke();
     }
   }
@@ -166,16 +182,34 @@ export class KeyVisualizer {
     this.ctx.lineTo(this.lanes["right"].x + this.laneWidth / 2, this.targetY);
     this.ctx.stroke();
 
-    // Draw receptors (target zones) - rectangles instead of circles, transparent in middle
     const laneEntries = Object.entries(this.lanes) as [
       string,
       { x: number; color: string },
     ][];
-    for (const [, lane] of laneEntries) {
+    for (const [laneName, lane] of laneEntries) {
       const rectWidth = 30;
       const rectHeight = 20;
 
-      // Draw the colored border
+      const isLanePressed = Array.from(this.keysHeld).some((heldKey) => {
+        return this.keyToLane[heldKey] === laneName;
+      });
+
+      if (isLanePressed) {
+        this.ctx.strokeStyle = "#ffffff";
+        this.ctx.lineWidth = 6;
+        this.ctx.shadowColor = "#ffffff";
+        this.ctx.shadowBlur = 10;
+        this.ctx.strokeRect(
+          lane.x - rectWidth / 2 - 2,
+          this.targetY - rectHeight / 2 - 2,
+          rectWidth + 4,
+          rectHeight + 4,
+        );
+
+        this.ctx.shadowColor = "#000000";
+        this.ctx.shadowBlur = 2;
+      }
+
       this.ctx.strokeStyle = lane.color;
       this.ctx.lineWidth = 3;
       this.ctx.strokeRect(
@@ -185,7 +219,6 @@ export class KeyVisualizer {
         rectHeight,
       );
 
-      // Add a white inner border for better visibility
       this.ctx.strokeStyle = "#ffffff";
       this.ctx.lineWidth = 1;
       this.ctx.strokeRect(
@@ -196,13 +229,13 @@ export class KeyVisualizer {
       );
     }
 
-    this.ctx.shadowBlur = 0; // Reset shadow
+    this.ctx.shadowBlur = 0;
   }
-
   private drawNotes(currentTime: number): void {
     if (!this.keyTimings) return;
 
-    // Adjust time windows based on playback rate
+    this.drawActiveLongNoteTails(currentTime);
+
     const futureWindow = 2 / this.playbackRate;
     const pastWindow = 0.3 / this.playbackRate;
 
@@ -219,73 +252,96 @@ export class KeyVisualizer {
       timings.forEach((timing: KeyTiming) => {
         const timeOffset = timing.press - currentTime;
 
+        const isLongNote =
+          timing.release && timing.release - timing.press > 0.2;
+
+        if (isLongNote && timing.release) {
+          const releaseOffset = timing.release - currentTime;
+          const y =
+            this.targetY - timeOffset * this.approachSpeed * this.playbackRate;
+          const releaseY =
+            this.targetY -
+            releaseOffset * this.approachSpeed * this.playbackRate;
+
+          const tailTop = Math.min(y, releaseY);
+          const tailBottom = Math.max(y, releaseY);
+
+          const visibleTop = this.targetY - 220;
+          const visibleBottom = this.canvas.height - 100;
+
+          if (tailBottom >= visibleTop && tailTop <= visibleBottom) {
+            this.ctx.fillStyle = lane.color;
+
+            const clampedTop = Math.max(tailTop, visibleTop);
+            const clampedBottom = Math.min(tailBottom, visibleBottom);
+
+            if (clampedBottom > clampedTop) {
+              this.ctx.fillRect(
+                lane.x - 5,
+                clampedTop,
+                10,
+                clampedBottom - clampedTop,
+              );
+            }
+          }
+        }
+
         if (timeOffset > -pastWindow && timeOffset < futureWindow) {
-          // Adjust approach speed based on playback rate
           const y =
             this.targetY - timeOffset * this.approachSpeed * this.playbackRate;
 
-          // Check if this is a long note based on duration (ignore held property)
-          const isLongNote =
-            timing.release && timing.release - timing.press > 0.2;
-
-          // Check if note should be visible (including when bottom is off screen)
-          if (y >= this.targetY - 150 || isLongNote) {
-            if (isLongNote && timing.release) {
-              const releaseOffset = timing.release - currentTime;
-              const releaseY =
-                this.targetY -
-                releaseOffset * this.approachSpeed * this.playbackRate;
-
-              if (releaseOffset > -pastWindow) {
-                // Draw the tail even if the bottom extends below the screen
-                const tailTop = Math.min(y, releaseY);
-                const tailBottom = Math.max(y, releaseY);
-
-                // Only draw if any part of the tail is visible
-                if (tailTop < this.canvas.height) {
-                  this.ctx.fillStyle = lane.color; // Solid color, not translucent
-
-                  // Draw tail from top to bottom, even if bottom extends off screen
-                  this.ctx.fillRect(
-                    lane.x - 10, // Smaller width for tail
-                    tailTop,
-                    20,
-                    tailBottom - tailTop,
-                  );
-                }
-
-                // Only draw the bottom cap (release note) if it's in the visible area
-                // No top cap for long notes as requested
-                if (
-                  releaseY >= this.targetY - 150 &&
-                  releaseY <= this.canvas.height + 25
-                ) {
-                  this.drawNoteRect(lane.x, releaseY, lane.color);
-                }
-              }
-            } else {
-              // Regular note - only draw if visible
-              if (y <= this.canvas.height + 25) {
-                this.drawNoteRect(lane.x, y, lane.color);
-              }
-            }
+          if (
+            y >= this.targetY - 220 &&
+            y <= this.canvas.height - 100 + 25 &&
+            timeOffset > -0.05 &&
+            !(timing as any).headHit
+          ) {
+            this.drawNoteRect(lane.x, y, lane.color);
           }
         }
       });
     });
   }
 
+  private drawActiveLongNoteTails(currentTime: number): void {
+    this.activeLongNotes.forEach((longNotes, dataKey) => {
+      const laneName = this.keyToLane[dataKey];
+      if (!laneName) return;
+
+      const lane = this.lanes[laneName];
+
+      longNotes.forEach((note) => {
+        if (note.release) {
+          const releaseOffset = note.release - currentTime;
+          const releaseY =
+            this.targetY -
+            releaseOffset * this.approachSpeed * this.playbackRate;
+
+          const visibleTop = this.targetY - 220;
+          const visibleBottom = this.canvas.height - 100;
+
+          if (releaseY >= visibleTop) {
+            const tailTop = this.targetY;
+            const tailBottom = Math.min(releaseY, visibleBottom);
+
+            if (tailBottom > tailTop) {
+              this.ctx.fillStyle = lane.color;
+              this.ctx.fillRect(lane.x - 5, tailTop, 10, tailBottom - tailTop);
+            }
+          }
+        }
+      });
+    });
+  }
   private drawNoteRect(x: number, y: number, color: string): void {
-    const noteWidth = 30; // Smaller notes
+    const noteWidth = 30;
     const noteHeight = 20;
 
-    // Add shadow for better visibility over video
     this.ctx.shadowColor = "#000000";
     this.ctx.shadowBlur = 3;
     this.ctx.shadowOffsetX = 1;
     this.ctx.shadowOffsetY = 1;
 
-    // Draw note rectangle without border
     this.ctx.fillStyle = color;
     this.ctx.fillRect(
       x - noteWidth / 2,
@@ -294,16 +350,12 @@ export class KeyVisualizer {
       noteHeight,
     );
 
-    // No white border as requested
-
-    // Reset shadow
     this.ctx.shadowBlur = 0;
     this.ctx.shadowOffsetX = 0;
     this.ctx.shadowOffsetY = 0;
   }
 
   private drawScore(): void {
-    // Position score in top-right corner with shadow for visibility
     this.ctx.fillStyle = "#ffffff";
     this.ctx.font = "20px Arial";
     this.ctx.textAlign = "right";
@@ -314,24 +366,28 @@ export class KeyVisualizer {
     this.ctx.fillText(`Score: ${this.score}`, this.canvas.width - 20, 20);
     this.ctx.fillText(`Combo: ${this.combo}x`, this.canvas.width - 20, 45);
 
-    this.ctx.shadowBlur = 0; // Reset shadow
+    this.ctx.shadowBlur = 0;
   }
 
   handleKeyPress(key: string): void {
-    if (!this.isPlaying || !this.keyTimings || !this.keyTimings[key]) return;
+    if (!this.isPlaying || !this.keyTimings) return;
 
-    // Adjust current time by playback rate
+    this.keysHeld.add(key);
+
+    const dataKey = this.keyAliases[key] || key;
+
+    if (!this.keyTimings[dataKey]) return;
+
     const currentTime =
       ((Date.now() - this.startTime) / 1000) * this.playbackRate;
     const laneName = this.keyToLane[key];
 
     if (!laneName) return;
 
-    const timings = this.keyTimings[key];
+    const timings = this.keyTimings[dataKey];
     let closestNote: KeyTiming | null = null;
     let closestDist = Infinity;
 
-    // Adjust timing window based on playback rate
     const timingWindow = 0.2 / this.playbackRate;
 
     for (const note of timings) {
@@ -370,17 +426,26 @@ export class KeyVisualizer {
 
       this.score += points * (1 + Math.min(this.combo * 0.1, 2));
 
-      const index = timings.indexOf(closestNote);
-      if (index > -1) {
-        timings.splice(index, 1);
+      const isLongNote =
+        closestNote.release && closestNote.release - closestNote.press > 0.2;
+
+      if (isLongNote) {
+        if (!this.activeLongNotes.has(dataKey)) {
+          this.activeLongNotes.set(dataKey, []);
+        }
+        this.activeLongNotes.get(dataKey)!.push(closestNote);
+
+        (closestNote as any).headHit = true;
+      } else {
+        const index = timings.indexOf(closestNote);
+        if (index > -1) {
+          timings.splice(index, 1);
+        }
       }
-    } else {
-      this.combo = 0;
-      console.log("MISS!");
     }
   }
 
   handleKeyRelease(key: string): void {
-    // Handle held note releases if needed
+    this.keysHeld.delete(key);
   }
 }
