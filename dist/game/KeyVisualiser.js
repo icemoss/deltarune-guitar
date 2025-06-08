@@ -12,6 +12,7 @@ export class KeyVisualizer {
         this.playbackRate = 1;
         this.keysHeld = new Set();
         this.activeLongNotes = new Map();
+        this.hitNotes = new Set();
         this.keyToLane = {
             ArrowLeft: "left",
             ArrowRight: "right",
@@ -59,6 +60,7 @@ export class KeyVisualizer {
         this.combo = 0;
         this.keysHeld.clear();
         this.activeLongNotes.clear();
+        this.hitNotes.clear();
     }
     stop() {
         this.isPlaying = false;
@@ -90,10 +92,20 @@ export class KeyVisualizer {
                         this.score += 1;
                     }
                     else {
-                        this.combo = 0;
+                        const noteProgress = (currentTime - note.press) / (note.release - note.press);
+                        const minHoldRatio = 0.7;
+                        if (noteProgress < minHoldRatio) {
+                            this.combo = 0;
+                        }
                     }
                 }
-                if (note.release && currentTime > note.release + 0.1) {
+                const gracePeriod = 0.15;
+                if (note.release && currentTime > note.release + gracePeriod) {
+                    const noteLength = note.release - note.press;
+                    if (noteLength > 0.2) {
+                        const bonusPoints = Math.floor(noteLength * 10);
+                        this.score += bonusPoints;
+                    }
                     longNotes.splice(index, 1);
                 }
             });
@@ -175,6 +187,8 @@ export class KeyVisualizer {
                 return;
             const lane = this.lanes[laneName];
             timings.forEach((timing) => {
+                if (this.hitNotes.has(timing))
+                    return;
                 const timeOffset = timing.press - currentTime;
                 const isLongNote = timing.release && timing.release - timing.press > 0.2;
                 if (isLongNote && timing.release) {
@@ -199,8 +213,7 @@ export class KeyVisualizer {
                     const y = this.targetY - timeOffset * this.approachSpeed * this.playbackRate;
                     if (y >= this.targetY - 220 &&
                         y <= this.canvas.height - 100 + 25 &&
-                        timeOffset > -0.05 &&
-                        !timing.headHit) {
+                        timeOffset > -0.05) {
                         this.drawNoteRect(lane.x, y, lane.color);
                     }
                 }
@@ -272,6 +285,8 @@ export class KeyVisualizer {
         let closestDist = Infinity;
         const timingWindow = 0.2 / this.playbackRate;
         for (const note of timings) {
+            if (this.hitNotes.has(note))
+                continue;
             const dist = Math.abs(note.press - currentTime);
             if (dist < closestDist && dist < timingWindow) {
                 closestDist = dist;
@@ -312,14 +327,8 @@ export class KeyVisualizer {
                     this.activeLongNotes.set(dataKey, []);
                 }
                 this.activeLongNotes.get(dataKey).push(closestNote);
-                closestNote.headHit = true;
             }
-            else {
-                const index = timings.indexOf(closestNote);
-                if (index > -1) {
-                    timings.splice(index, 1);
-                }
-            }
+            this.hitNotes.add(closestNote);
         }
     }
     handleKeyRelease(key) {

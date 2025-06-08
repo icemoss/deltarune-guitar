@@ -21,6 +21,7 @@ export class KeyVisualizer {
   private playbackRate: number = 1;
   private keysHeld: Set<string> = new Set();
   private activeLongNotes: Map<string, KeyTiming[]> = new Map();
+  private hitNotes: Set<KeyTiming> = new Set();
 
   private keyToLane: { [key: string]: string } = {
     ArrowLeft: "left",
@@ -78,6 +79,7 @@ export class KeyVisualizer {
     this.combo = 0;
     this.keysHeld.clear();
     this.activeLongNotes.clear();
+    this.hitNotes.clear();
   }
 
   stop(): void {
@@ -121,11 +123,24 @@ export class KeyVisualizer {
           if (isKeyHeld) {
             this.score += 1;
           } else {
-            this.combo = 0;
+            const noteProgress =
+              (currentTime - note.press) / (note.release! - note.press);
+            const minHoldRatio = 0.7;
+
+            if (noteProgress < minHoldRatio) {
+              this.combo = 0;
+            }
           }
         }
 
-        if (note.release && currentTime > note.release + 0.1) {
+        const gracePeriod = 0.15;
+        if (note.release && currentTime > note.release + gracePeriod) {
+          const noteLength = note.release - note.press;
+          if (noteLength > 0.2) {
+            const bonusPoints = Math.floor(noteLength * 10);
+            this.score += bonusPoints;
+          }
+
           longNotes.splice(index, 1);
         }
       });
@@ -135,7 +150,6 @@ export class KeyVisualizer {
       }
     });
   }
-
   private drawNoteLaneOverlay(): void {
     const leftLaneX = this.lanes["left"].x;
     const rightLaneX = this.lanes["right"].x;
@@ -231,6 +245,7 @@ export class KeyVisualizer {
 
     this.ctx.shadowBlur = 0;
   }
+
   private drawNotes(currentTime: number): void {
     if (!this.keyTimings) return;
 
@@ -250,6 +265,8 @@ export class KeyVisualizer {
       const lane = this.lanes[laneName];
 
       timings.forEach((timing: KeyTiming) => {
+        if (this.hitNotes.has(timing)) return;
+
         const timeOffset = timing.press - currentTime;
 
         const isLongNote =
@@ -293,8 +310,7 @@ export class KeyVisualizer {
           if (
             y >= this.targetY - 220 &&
             y <= this.canvas.height - 100 + 25 &&
-            timeOffset > -0.05 &&
-            !(timing as any).headHit
+            timeOffset > -0.05
           ) {
             this.drawNoteRect(lane.x, y, lane.color);
           }
@@ -333,6 +349,7 @@ export class KeyVisualizer {
       });
     });
   }
+
   private drawNoteRect(x: number, y: number, color: string): void {
     const noteWidth = 30;
     const noteHeight = 20;
@@ -391,6 +408,8 @@ export class KeyVisualizer {
     const timingWindow = 0.2 / this.playbackRate;
 
     for (const note of timings) {
+      if (this.hitNotes.has(note)) continue;
+
       const dist = Math.abs(note.press - currentTime);
       if (dist < closestDist && dist < timingWindow) {
         closestDist = dist;
@@ -434,14 +453,9 @@ export class KeyVisualizer {
           this.activeLongNotes.set(dataKey, []);
         }
         this.activeLongNotes.get(dataKey)!.push(closestNote);
-
-        (closestNote as any).headHit = true;
-      } else {
-        const index = timings.indexOf(closestNote);
-        if (index > -1) {
-          timings.splice(index, 1);
-        }
       }
+
+      this.hitNotes.add(closestNote);
     }
   }
 
