@@ -26,7 +26,6 @@ export class Game {
     this.active = false;
     this.setupKeyListeners();
 
-    // Automatically load the visualizer on construction
     this.loadVisualizer();
   }
 
@@ -44,7 +43,7 @@ export class Game {
       const timingsJson = await response.text();
       this.keyVisualizer = new KeyVisualizer(this.canvas);
       this.keyVisualizer.loadTimings(timingsJson);
-      this.keyVisualizer.setPlaybackRate(this.PLAYBACKRATE); // Set the playback rate
+      this.keyVisualizer.setPlaybackRate(this.PLAYBACKRATE);
       console.log("Visualizer loaded successfully");
     } catch (error) {
       console.warn("Failed to load visualizer:", error);
@@ -54,12 +53,10 @@ export class Game {
     document.addEventListener("keydown", (event) => {
       if (!this.active) return;
 
-      // Always handle key presses for the visualizer if it exists
       if (this.keyVisualizer) {
         this.keyVisualizer.handleKeyPress(event.code);
       }
 
-      // Also log keys if logging is enabled
       if (ENABLE_LOGGING) {
         this.logger.handleKeyDown(event);
       }
@@ -68,13 +65,16 @@ export class Game {
     document.addEventListener("keyup", (event) => {
       if (!this.active) return;
 
+      if (this.keyVisualizer) {
+        this.keyVisualizer.handleKeyRelease(event.code);
+      }
+
       if (ENABLE_LOGGING) {
         this.logger.handleKeyUp(event);
       }
     });
   }
 
-  // Start the game with video, audio, and visualizer overlay
   async start() {
     console.log("Starting game...");
 
@@ -94,7 +94,6 @@ export class Game {
 
     this.active = true;
 
-    // Start the visualizer if it's loaded
     if (this.keyVisualizer) {
       console.log("Starting visualizer...");
       this.keyVisualizer.start();
@@ -124,10 +123,8 @@ export class Game {
   private render() {
     if (!this.active) return;
 
-    // Always draw the video frame first
     this.video.drawFrame();
 
-    // Overlay the visualizer if it exists and is playing
     if (this.keyVisualizer) {
       this.keyVisualizer.renderOverlay();
     }
@@ -135,5 +132,3 @@ export class Game {
     requestAnimationFrame(() => this.render());
   }
 }
-
-// stuff and things
