@@ -1,4 +1,3 @@
-// KeyVisualizer.ts
 export interface KeyTiming {
   press: number;
   release?: number;
@@ -14,17 +13,25 @@ export class KeyVisualizer {
   private keyTimings: KeyTimings | null = null;
   private startTime: number = 0;
   private isPlaying: boolean = false;
-  private readonly laneWidth: number = 40; // Made smaller
-  private readonly targetY: number = 250; // Raised by 100 pixels (was 350)
+  private readonly laneWidth: number = 40;
+  private readonly targetY: number = 250;
   private readonly approachSpeed: number = 200;
   private score: number = 0;
   private combo: number = 0;
   private playbackRate: number = 1;
+  private keysHeld: Set<string> = new Set();
+  private activeLongNotes: Map<string, KeyTiming[]> = new Map();
 
-  // Map keys to lanes
   private keyToLane: { [key: string]: string } = {
     ArrowLeft: "left",
     ArrowRight: "right",
+    KeyZ: "left",
+    KeyX: "right",
+  };
+
+  private keyAliases: { [key: string]: string } = {
+    KeyZ: "ArrowLeft",
+    KeyX: "ArrowRight",
   };
 
   // Lane configuration - centered and with new colors
@@ -38,9 +45,8 @@ export class KeyVisualizer {
     }
     this.ctx = context;
 
-    // Center the lanes with smaller spacing
     const centerX = this.canvas.width / 2;
-    const laneSpacing = 60; // Smaller spacing between lanes
+    const laneSpacing = 60;
 
     this.lanes = {
       left: { x: centerX - laneSpacing / 2, color: "#00ff00" }, // Green
