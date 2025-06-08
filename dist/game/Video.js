@@ -3,7 +3,7 @@ export class Video {
         this.canvas = canvas;
         this.ctx = ctx;
         this.video = document.createElement("video");
-        this.video.src = "../assets/game.mp4";
+        this.video.src = "./assets/game.mp4";
         this.video.muted = true;
         this.video.load();
     }

@@ -6,7 +6,7 @@ export class Video {
     private ctx: CanvasRenderingContext2D,
   ) {
     this.video = document.createElement("video");
-    this.video.src = "../assets/game.mp4";
+    this.video.src = "./assets/game.mp4";
     this.video.muted = true;
     this.video.load();
   }
