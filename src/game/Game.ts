@@ -1,42 +1,40 @@
+import {Video} from "./Video.js";
+import {Audio} from "./Audio.js";
+
 export class Game {
-    private readonly video: HTMLVideoElement
-    private readonly ctx: CanvasRenderingContext2D | null
-    private playing: boolean
+    private readonly ctx: CanvasRenderingContext2D;
+    private readonly video: Video;
+    private readonly audio: Audio;
+    private active: boolean;
 
     constructor(private canvas: HTMLCanvasElement) {
-        this.ctx = canvas.getContext("2d")
-        this.video = document.createElement("video")
-        this.video.src = "../assets/game.mp4"
-        this.playing = false;
+        const context = canvas.getContext("2d");
+        if (!context) {
+            throw new Error("Failed to get 2D context");
+        }
+        this.ctx = context;
+        this.video = new Video(this.canvas, this.ctx);
+        this.audio = new Audio();
+        this.active = false;
     }
-    // lets convert the video to the correct aspect ratio
-    // converting still
 
     start() {
-        console.log("Started", this.canvas, this.video, this.ctx)
-        this.video.play().then(_ => {
-            this.playing = true;
-            this.drawVideo()
-        });
+        this.video.play();
+        this.audio.play();
+        this.active = true;
+        this.render()
     }
 
     stop() {
-        this.video.currentTime = 0;
-        this.video.pause();
-        this.playing = false;
+        this.active = false;
+        this.video.stop();
+        this.audio.stop();
     }
 
-    drawVideo() {
-        this.ctx?.drawImage(
-            this.video,
-            0,
-            0,
-            this.canvas.width,
-            this.canvas.height
-        )
-        if (this.playing) {
-            requestAnimationFrame(() => {this.drawVideo()})
+    render() {
+        if (this.active) {
+            this.video.drawFrame();
+            requestAnimationFrame(() => this.render());
         }
     }
-
 }
