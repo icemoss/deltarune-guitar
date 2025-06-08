@@ -265,13 +265,12 @@ export class KeyVisualizer {
       const lane = this.lanes[laneName];
 
       timings.forEach((timing: KeyTiming) => {
-        if (this.hitNotes.has(timing)) return;
-
         const timeOffset = timing.press - currentTime;
-
         const isLongNote =
           timing.release && timing.release - timing.press > 0.2;
+        const noteHit = this.hitNotes.has(timing);
 
+        // Draw long note tails even after head is hit
         if (isLongNote && timing.release) {
           const releaseOffset = timing.release - currentTime;
           const y =
@@ -289,7 +288,13 @@ export class KeyVisualizer {
           if (tailBottom >= visibleTop && tailTop <= visibleBottom) {
             this.ctx.fillStyle = lane.color;
 
-            const clampedTop = Math.max(tailTop, visibleTop);
+            // If note head is hit, only draw the remaining tail
+            let drawTop = tailTop;
+            if (noteHit && currentTime > timing.press) {
+              drawTop = Math.max(this.targetY, tailTop);
+            }
+
+            const clampedTop = Math.max(drawTop, visibleTop);
             const clampedBottom = Math.min(tailBottom, visibleBottom);
 
             if (clampedBottom > clampedTop) {
@@ -303,7 +308,8 @@ export class KeyVisualizer {
           }
         }
 
-        if (timeOffset > -pastWindow && timeOffset < futureWindow) {
+        // Only draw note heads if they haven't been hit
+        if (!noteHit && timeOffset > -pastWindow && timeOffset < futureWindow) {
           const y =
             this.targetY - timeOffset * this.approachSpeed * this.playbackRate;
 
@@ -318,7 +324,6 @@ export class KeyVisualizer {
       });
     });
   }
-
   private drawActiveLongNoteTails(currentTime: number): void {
     this.activeLongNotes.forEach((longNotes, dataKey) => {
       const laneName = this.keyToLane[dataKey];
