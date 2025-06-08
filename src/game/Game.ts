@@ -118,7 +118,7 @@ export class Game {
         const json = JSON.stringify(formattedTimings, null, 2);
 
         const blob = new Blob([json], {type: 'application/json'});
-        console.log(blob)
+        console.log(blob);
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
