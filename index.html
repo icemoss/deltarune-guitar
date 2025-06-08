@@ -1,20 +1,23 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Deltarune Rock Band</title>
-    <meta content="width=device-width, initial-scale=1.0" name="viewport">
-    <link href="favicon.ico" rel="icon">
-    <link href="styles.css" rel="stylesheet">
-</head>
-<body>
-<header id="header">
-    <button id="start-button">Start</button>
-    <button id="stop-button">Stop</button>
-</header>
-<main id="game-div">
-    <canvas height="400" id="game-canvas" width="640"></canvas>
-</main>
-<script src="./dist/index.js" type="module"></script>
-</body>
+    <head>
+        <meta charset="UTF-8" />
+        <title>Deltarune Rock Band</title>
+        <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+        <link href="favicon.ico" rel="icon" />
+        <link href="styles.css" rel="stylesheet" />
+    </head>
+    <body>
+        <header id="header">
+            <button id="start-button">Start Game</button>
+            <button id="stop-button">Stop</button>
+            <div id="instructions">
+                <p>Use ← and → arrow keys to play!</p>
+            </div>
+        </header>
+        <main id="game-div">
+            <canvas height="400" id="game-canvas" width="640"></canvas>
+        </main>
+        <script src="./dist/index.js" type="module"></script>
+    </body>
 </html>

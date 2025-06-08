@@ -14,8 +14,8 @@
   },
   "keywords": [],
   "author": "",
-  "license": "ISC",
-  "type": "commonjs",
+  "license": "MIT",
+  "type": "module",
   "bugs": {
     "url": "https://github.com/icemoss/deltarune-guitar/issues"
   },
