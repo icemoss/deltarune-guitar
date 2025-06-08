@@ -30,4 +30,8 @@ export class Audio {
     setVolume(volume: number) {
         this.audio.volume = volume;
     }
+
+    setPlaybackRate(rate: number) {
+        this.audio.playbackRate = rate;
+    }
 }

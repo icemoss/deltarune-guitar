@@ -21,4 +21,8 @@ export class Video {
     drawFrame() {
         this.ctx.drawImage(this.video, 0, 0, this.canvas.width, this.canvas.height);
     }
+
+    setPlaybackRate(rate: number) {
+        this.video.playbackRate = rate;
+    }
 }
