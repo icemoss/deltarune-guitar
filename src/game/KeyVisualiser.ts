@@ -107,6 +107,83 @@ export class KeyVisualizer {
     this.drawScore();
   }
 
+  handleKeyPress(key: string): void {
+    if (!this.isPlaying || !this.keyTimings) return;
+
+    this.keysHeld.add(key);
+
+    const dataKey = this.keyAliases[key] || key;
+
+    if (!this.keyTimings[dataKey]) return;
+
+    const currentTime =
+      ((Date.now() - this.startTime) / 1000) * this.playbackRate;
+    const laneName = this.keyToLane[key];
+
+    if (!laneName) return;
+
+    const timings = this.keyTimings[dataKey];
+    let closestNote: KeyTiming | null = null;
+    let closestDist = Infinity;
+
+    const timingWindow = 0.2 / this.playbackRate;
+
+    for (const note of timings) {
+      if (this.hitNotes.has(note)) continue;
+
+      const dist = Math.abs(note.press - currentTime);
+      if (dist < closestDist && dist < timingWindow) {
+        closestDist = dist;
+        closestNote = note;
+      }
+    }
+
+    if (closestNote) {
+      let points;
+      const adjustedThresholds = {
+        perfect: 0.08 / this.playbackRate,
+        great: 0.15 / this.playbackRate,
+        good: 0.22 / this.playbackRate,
+      };
+
+      if (closestDist < adjustedThresholds.perfect) {
+        points = 100;
+        this.combo++;
+        console.log("PERFECT!");
+      } else if (closestDist < adjustedThresholds.great) {
+        points = 75;
+        this.combo++;
+        console.log("GREAT!");
+      } else if (closestDist < adjustedThresholds.good) {
+        points = 50;
+        this.combo++;
+        console.log("GOOD!");
+      } else {
+        points = 25;
+        this.combo = 0;
+        console.log("BAD!");
+      }
+
+      this.score += points * (1 + Math.min(this.combo * 0.1, 2));
+
+      const isLongNote =
+        closestNote.release && closestNote.release - closestNote.press > 0.2;
+
+      if (isLongNote) {
+        if (!this.activeLongNotes.has(dataKey)) {
+          this.activeLongNotes.set(dataKey, []);
+        }
+        this.activeLongNotes.get(dataKey)!.push(closestNote);
+      }
+
+      this.hitNotes.add(closestNote);
+    }
+  }
+
+  handleKeyRelease(key: string): void {
+    this.keysHeld.delete(key);
+  }
+
   private updateLongNoteHolding(currentTime: number): void {
     this.activeLongNotes.forEach((longNotes, dataKey) => {
       const isKeyHeld = Array.from(this.keysHeld).some((heldKey) => {
@@ -150,6 +227,7 @@ export class KeyVisualizer {
       }
     });
   }
+
   private drawNoteLaneOverlay(): void {
     const leftLaneX = this.lanes["left"].x;
     const rightLaneX = this.lanes["right"].x;
@@ -157,7 +235,7 @@ export class KeyVisualizer {
     const overlayWidth = rightLaneX + this.laneWidth / 2 - overlayLeft;
 
     const overlayTop = this.targetY - 220;
-    const overlayBottom = this.canvas.height - 100;
+    const overlayBottom = this.canvas.height - 100 - 20;
     const overlayHeight = overlayBottom - overlayTop;
 
     this.ctx.fillStyle = "#000000";
@@ -175,12 +253,18 @@ export class KeyVisualizer {
     for (const [, lane] of laneEntries) {
       this.ctx.beginPath();
       this.ctx.moveTo(lane.x - this.laneWidth / 2, this.targetY - 220);
-      this.ctx.lineTo(lane.x - this.laneWidth / 2, this.canvas.height - 100);
+      this.ctx.lineTo(
+        lane.x - this.laneWidth / 2,
+        this.canvas.height - 100 - 20,
+      );
       this.ctx.stroke();
 
       this.ctx.beginPath();
       this.ctx.moveTo(lane.x + this.laneWidth / 2, this.targetY - 220);
-      this.ctx.lineTo(lane.x + this.laneWidth / 2, this.canvas.height - 100);
+      this.ctx.lineTo(
+        lane.x + this.laneWidth / 2,
+        this.canvas.height - 100 - 20,
+      );
       this.ctx.stroke();
     }
   }
@@ -191,9 +275,11 @@ export class KeyVisualizer {
     this.ctx.shadowColor = "#000000";
     this.ctx.shadowBlur = 2;
 
+    const yOffset = -30;
+    const targetLineY = this.targetY + yOffset;
     this.ctx.beginPath();
-    this.ctx.moveTo(this.lanes["left"].x - this.laneWidth / 2, this.targetY);
-    this.ctx.lineTo(this.lanes["right"].x + this.laneWidth / 2, this.targetY);
+    this.ctx.moveTo(this.lanes["left"].x - this.laneWidth / 2, targetLineY);
+    this.ctx.lineTo(this.lanes["right"].x + this.laneWidth / 2, targetLineY);
     this.ctx.stroke();
 
     const laneEntries = Object.entries(this.lanes) as [
@@ -215,7 +301,7 @@ export class KeyVisualizer {
         this.ctx.shadowBlur = 10;
         this.ctx.strokeRect(
           lane.x - rectWidth / 2 - 2,
-          this.targetY - rectHeight / 2 - 2,
+          this.targetY - rectHeight / 2 - 2 + yOffset,
           rectWidth + 4,
           rectHeight + 4,
         );
@@ -228,7 +314,7 @@ export class KeyVisualizer {
       this.ctx.lineWidth = 3;
       this.ctx.strokeRect(
         lane.x - rectWidth / 2,
-        this.targetY - rectHeight / 2,
+        this.targetY - rectHeight / 2 + yOffset,
         rectWidth,
         rectHeight,
       );
@@ -237,7 +323,7 @@ export class KeyVisualizer {
       this.ctx.lineWidth = 1;
       this.ctx.strokeRect(
         lane.x - rectWidth / 2 + 2,
-        this.targetY - rectHeight / 2 + 2,
+        this.targetY - rectHeight / 2 + 2 + yOffset,
         rectWidth - 4,
         rectHeight - 4,
       );
@@ -267,7 +353,6 @@ export class KeyVisualizer {
         const isLongNote =
           timing.release && timing.release - timing.press > 0.2;
 
-        // Always draw long note tails regardless of hit status
         if (isLongNote && timing.release) {
           const releaseOffset = timing.release - currentTime;
           const y =
@@ -280,9 +365,8 @@ export class KeyVisualizer {
           const tailBottom = Math.max(y, releaseY);
 
           const visibleTop = this.targetY - 220;
-          const visibleBottom = this.canvas.height - 100;
+          const visibleBottom = this.canvas.height - 100 - 20;
 
-          // Only hide tail when it's completely off the bottom of the screen
           if (tailTop <= visibleBottom) {
             this.ctx.fillStyle = lane.color;
 
@@ -300,7 +384,6 @@ export class KeyVisualizer {
           }
         }
 
-        // Only draw note heads if they haven't been hit
         if (
           !this.hitNotes.has(timing) &&
           timeOffset > -pastWindow &&
@@ -311,7 +394,7 @@ export class KeyVisualizer {
 
           if (
             y >= this.targetY - 220 &&
-            y <= this.canvas.height - 100 + 25 &&
+            y <= this.canvas.height - 100 - 20 + 25 &&
             timeOffset > -0.05
           ) {
             this.drawNoteRect(lane.x, y, lane.color);
@@ -355,82 +438,5 @@ export class KeyVisualizer {
     this.ctx.fillText(`Combo: ${this.combo}x`, this.canvas.width - 20, 45);
 
     this.ctx.shadowBlur = 0;
-  }
-
-  handleKeyPress(key: string): void {
-    if (!this.isPlaying || !this.keyTimings) return;
-
-    this.keysHeld.add(key);
-
-    const dataKey = this.keyAliases[key] || key;
-
-    if (!this.keyTimings[dataKey]) return;
-
-    const currentTime =
-      ((Date.now() - this.startTime) / 1000) * this.playbackRate;
-    const laneName = this.keyToLane[key];
-
-    if (!laneName) return;
-
-    const timings = this.keyTimings[dataKey];
-    let closestNote: KeyTiming | null = null;
-    let closestDist = Infinity;
-
-    const timingWindow = 0.2 / this.playbackRate;
-
-    for (const note of timings) {
-      if (this.hitNotes.has(note)) continue;
-
-      const dist = Math.abs(note.press - currentTime);
-      if (dist < closestDist && dist < timingWindow) {
-        closestDist = dist;
-        closestNote = note;
-      }
-    }
-
-    if (closestNote) {
-      let points = 0;
-      const adjustedThresholds = {
-        perfect: 0.05 / this.playbackRate,
-        great: 0.1 / this.playbackRate,
-        good: 0.15 / this.playbackRate,
-      };
-
-      if (closestDist < adjustedThresholds.perfect) {
-        points = 100;
-        this.combo++;
-        console.log("PERFECT!");
-      } else if (closestDist < adjustedThresholds.great) {
-        points = 75;
-        this.combo++;
-        console.log("GREAT!");
-      } else if (closestDist < adjustedThresholds.good) {
-        points = 50;
-        this.combo++;
-        console.log("GOOD!");
-      } else {
-        points = 25;
-        this.combo = 0;
-        console.log("BAD!");
-      }
-
-      this.score += points * (1 + Math.min(this.combo * 0.1, 2));
-
-      const isLongNote =
-        closestNote.release && closestNote.release - closestNote.press > 0.2;
-
-      if (isLongNote) {
-        if (!this.activeLongNotes.has(dataKey)) {
-          this.activeLongNotes.set(dataKey, []);
-        }
-        this.activeLongNotes.get(dataKey)!.push(closestNote);
-      }
-
-      this.hitNotes.add(closestNote);
-    }
-  }
-
-  handleKeyRelease(key: string): void {
-    this.keysHeld.delete(key);
   }
 }
