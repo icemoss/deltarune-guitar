@@ -2,23 +2,19 @@
 <html lang="en">
     <head>
         <meta charset="UTF-8" />
-        <title>Deltarune Rock Band</title>
-        <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+        <title>Deltarune Guitar Hero</title>
+        <meta
+            content="width=device-width, initial-scale=1.0, user-scalable=no"
+            name="viewport"
+        />
         <link href="./favicon.ico" rel="icon" />
         <link href="./styles.css" rel="stylesheet" />
     </head>
     <body>
-        <header>
-            <button id="start-button">Start Game</button>
-            <button id="stop-button">Stop</button>
-            <div id="instructions">
-                <p>Use ← and → or Z and X to hit the falling notes</p>
-                <p>Notes with tails require you to hold the button</p>
-            </div>
-        </header>
-        <main id="game-div">
+        <div id="game-container">
             <canvas height="400" id="game-canvas" width="640"></canvas>
-        </main>
+        </div>
+
         <script src="./dist/index.js" type="module"></script>
     </body>
 </html>

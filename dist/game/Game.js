@@ -2,12 +2,16 @@ import { Video } from "./Video.js";
 import { Audio } from "./Audio.js";
 import { createLogger } from "./Logger.js";
 import { KeyVisualizer } from "./KeyVisualiser.js";
+import { UIManager } from "./UIManager.js";
+import { MobileControls } from "./MobileControls.js";
+import { DeviceDetector } from "./DeviceDetector.js";
 const ENABLE_LOGGING = false;
 export class Game {
     constructor(canvas) {
         this.canvas = canvas;
         this.PLAYBACKRATE = 1;
         this.keyVisualizer = null;
+        this.mobileControls = null;
         const context = canvas.getContext("2d");
         if (!context) {
             throw new Error("Failed to get 2D context");
@@ -17,14 +21,47 @@ export class Game {
         this.audio = new Audio();
         this.logger = createLogger(ENABLE_LOGGING);
         this.active = false;
+        this.isMobile = DeviceDetector.isMobile();
+        this.uiManager = new UIManager(this.canvas, () => this.startGame(), () => this.stopGame());
+        if (this.isMobile) {
+            this.mobileControls = new MobileControls(this.canvas, (key) => this.handleMobileKeyPress(key), (key) => this.handleMobileKeyRelease(key));
+        }
         this.setupKeyListeners();
         this.loadVisualizer();
+        this.startRenderLoop();
+    }
+    stop() {
+        this.stopGame();
+        this.uiManager.setState("menu");
+    }
+    handleMobileKeyPress(key) {
+        if (!this.active)
+            return;
+        if (this.keyVisualizer) {
+            this.keyVisualizer.handleKeyPress(key);
+        }
+        if (ENABLE_LOGGING) {
+            const mockEvent = new KeyboardEvent("keydown", { code: key });
+            this.logger.handleKeyDown(mockEvent);
+        }
+    }
+    handleMobileKeyRelease(key) {
+        if (!this.active)
+            return;
+        if (this.keyVisualizer) {
+            this.keyVisualizer.handleKeyRelease(key);
+        }
+        if (ENABLE_LOGGING) {
+            const mockEvent = new KeyboardEvent("keyup", { code: key });
+            this.logger.handleKeyUp(mockEvent);
+        }
     }
     async loadVisualizer() {
         try {
             const response = await fetch("./assets/keyTimings.json");
             if (!response.ok) {
-                console.warn("Could not load keyTimings.json - visualizer will be disabled");
+                console.error("Could not fetch keyTimings.json");
+                // Return early
                 return;
             }
             const timingsJson = await response.text();
@@ -33,13 +70,17 @@ export class Game {
             this.keyVisualizer.setPlaybackRate(this.PLAYBACKRATE);
         }
         catch (error) {
-            console.warn("Failed to load visualizer:", error);
+            console.error("Failed to load visualizer:", error);
         }
     }
     setupKeyListeners() {
         document.addEventListener("keydown", (event) => {
             if (!this.active)
                 return;
+            if (event.key === "Escape" && this.uiManager.getState() === "playing") {
+                this.pauseGame();
+                return;
+            }
             if (this.keyVisualizer) {
                 this.keyVisualizer.handleKeyPress(event.code);
             }
@@ -58,7 +99,14 @@ export class Game {
             }
         });
     }
-    async start() {
+    startRenderLoop() {
+        const renderFrame = () => {
+            this.render();
+            requestAnimationFrame(renderFrame);
+        };
+        renderFrame();
+    }
+    startGame() {
         this.video.setPlaybackRate(this.PLAYBACKRATE);
         this.audio.setPlaybackRate(this.PLAYBACKRATE);
         if (ENABLE_LOGGING) {
@@ -76,9 +124,11 @@ export class Game {
         if (ENABLE_LOGGING) {
             this.logger.startRecording();
         }
-        this.render();
+        if (this.mobileControls) {
+            this.mobileControls.show();
+        }
     }
-    stop() {
+    stopGame() {
         this.active = false;
         this.video.stop();
         this.audio.stop();
@@ -88,15 +138,34 @@ export class Game {
         if (ENABLE_LOGGING) {
             this.logger.exportTimings();
         }
+        if (this.mobileControls) {
+            this.mobileControls.hide();
+        }
+    }
+    pauseGame() {
+        this.active = false;
+        this.video.stop();
+        this.audio.stop();
+        if (this.mobileControls) {
+            this.mobileControls.hide();
+        }
+        this.uiManager.setState("paused");
     }
     render() {
-        if (!this.active)
-            return;
-        this.video.drawFrame();
-        if (this.keyVisualizer) {
-            this.keyVisualizer.renderOverlay();
+        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        const currentState = this.uiManager.getState();
+        if (currentState === "playing" && this.active) {
+            this.video.drawFrame();
+            if (this.keyVisualizer) {
+                this.keyVisualizer.renderOverlay();
+            }
+            if (this.mobileControls) {
+                this.mobileControls.render();
+            }
         }
-        requestAnimationFrame(() => this.render());
+        else {
+            this.uiManager.render();
+        }
     }
 }
 //# sourceMappingURL=Game.js.map

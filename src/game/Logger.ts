@@ -61,10 +61,6 @@ export class Logger {
     }
   }
 
-  private getCurrentTime(): number {
-    return ((Date.now() - this.startTime) / 1000) * this.playbackRate;
-  }
-
   exportTimings(): void {
     const formattedTimings: Record<
       string,
@@ -98,14 +94,22 @@ export class Logger {
       URL.revokeObjectURL(url);
     }, 100);
   }
+
+  private getCurrentTime(): number {
+    return ((Date.now() - this.startTime) / 1000) * this.playbackRate;
+  }
 }
 
 // noinspection JSUnusedGlobalSymbols
 export class NullLogger implements Partial<Logger> {
   setPlaybackRate(): void {}
+
   startRecording(): void {}
+
   handleKeyDown(): void {}
+
   handleKeyUp(): void {}
+
   exportTimings(): void {}
 }
 

@@ -45,9 +45,6 @@ export class Logger {
             this.activeKeys.delete(key);
         }
     }
-    getCurrentTime() {
-        return ((Date.now() - this.startTime) / 1000) * this.playbackRate;
-    }
     exportTimings() {
         const formattedTimings = {};
         this.keyTimings.forEach((timings, key) => {
@@ -73,6 +70,9 @@ export class Logger {
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
         }, 100);
+    }
+    getCurrentTime() {
+        return ((Date.now() - this.startTime) / 1000) * this.playbackRate;
     }
 }
 // noinspection JSUnusedGlobalSymbols
