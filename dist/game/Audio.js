@@ -26,9 +26,6 @@ export class Audio {
         this.audio.pause();
         this.audio.currentTime = 0;
     }
-    setVolume(volume) {
-        this.audio.volume = volume;
-    }
     setPlaybackRate(rate) {
         this.audio.playbackRate = rate;
     }

@@ -30,10 +30,6 @@ export class Game {
         this.loadVisualizer();
         this.startRenderLoop();
     }
-    stop() {
-        this.stopGame();
-        this.uiManager.setState("menu");
-    }
     handleMobileKeyPress(key) {
         if (!this.active)
             return;
