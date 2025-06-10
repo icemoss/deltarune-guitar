@@ -17,8 +17,8 @@ export class Game {
   private logger: Logger | NullLogger;
   private keyVisualizer: KeyVisualizer | null = null;
   private uiManager: UIManager;
-  private mobileControls: MobileControls | null = null;
-  private isMobile: boolean;
+  private readonly mobileControls: MobileControls | null = null;
+  private readonly isMobile: boolean;
 
   constructor(private canvas: HTMLCanvasElement) {
     const context = canvas.getContext("2d");
@@ -51,11 +51,6 @@ export class Game {
     this.startRenderLoop();
   }
 
-  stop() {
-    this.stopGame();
-    this.uiManager.setState("menu");
-  }
-
   private handleMobileKeyPress(key: string): void {
     if (!this.active) return;
 
@@ -86,9 +81,7 @@ export class Game {
     try {
       const response = await fetch("./assets/keyTimings.json");
       if (!response.ok) {
-        console.error(
-          "Could not fetch keyTimings.json",
-        );
+        console.error("Could not fetch keyTimings.json");
         // Return early
         return;
       }

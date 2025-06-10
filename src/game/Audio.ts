@@ -34,10 +34,6 @@ export class Audio {
     this.audio.currentTime = 0;
   }
 
-  setVolume(volume: number) {
-    this.audio.volume = volume;
-  }
-
   setPlaybackRate(rate: number) {
     this.audio.playbackRate = rate;
   }
